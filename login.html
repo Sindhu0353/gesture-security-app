@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — GestuRole Security Portal</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --border-color: #334155;
+      --accent-blue: #3b82f6;
+      --accent-hover: #2563eb;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --danger-red: #ef4444;
+      --success-green: #10b981;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login-wrapper {
+      width: 100%;
+      max-width: 440px;
+      padding: 1rem;
+      box-sizing: border-box;
+    }
+
+    .brand-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .brand-header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin: 0 0 0.5rem 0;
+      letter-spacing: -0.025em;
+    }
+
+    .brand-header p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    .login-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .text-input, .select-input {
+      width: 100%;
+      background: #0f172a;
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      box-sizing: border-box;
+    }
+
+    .text-input:focus, .select-input:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    /* Validation error styles */
+    .text-input.invalid, .select-input.invalid {
+      border-color: var(--danger-red) !important;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+    }
+
+    .field-error {
+      color: var(--danger-red);
+      font-size: 0.75rem;
+      margin-top: 0.35rem;
+      display: none;
+    }
+
+    .field-error.visible {
+      display: block;
+    }
+
+    .password-toggle {
+      position: absolute;
+      right: 0.75rem;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.8rem;
+      padding: 0.25rem 0.5rem;
+    }
+
+    .password-toggle:hover {
+      color: var(--text-main);
+    }
+
+    .alert-banner {
+      display: none;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--danger-red);
+      color: #fca5a5;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .btn-submit {
+      width: 100%;
+      background: var(--accent-blue);
+      color: #ffffff;
+      border: none;
+      padding: 0.85rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-submit:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-submit:disabled {
+      background: #475569;
+      cursor: not-allowed;
+    }
+
+    .demo-credentials {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px dashed var(--border-color);
+      border-radius: 8px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .demo-credentials strong {
+      color: var(--text-main);
+    }
+
+    .demo-account-btn {
+      display: inline-block;
+      margin-top: 0.5rem;
+      margin-right: 0.25rem;
+      padding: 0.25rem 0.5rem;
+      background: #334155;
+      color: #f8fafc;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+
+    .demo-account-btn:hover {
+      background: var(--accent-blue);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-wrapper">
+    <div class="brand-header">
+      <h1>🛡️ GestuRole</h1>
+      <p>Dual-Factor Biometric & Gesture Auth Engine</p>
+    </div>
+
+    <div class="login-card">
+      <div class="card-title">
+        <span>Stage 1: Identity Credential Portal</span>
+      </div>
+
+      <div id="alert-banner" class="alert-banner"></div>
+
+      <form id="login-form" novalidate autocomplete="off">
+        <!-- Username Field -->
+        <div class="form-group">
+          <label for="username">Username / User ID</label>
+          <div class="input-wrapper">
+            <input type="text" id="username" class="text-input" placeholder="e.g. admin_user" required>
+          </div>
+          <div id="username-error" class="field-error">Username must be at least 3 characters (letters, numbers, underscores only).</div>
+        </div>
+
+        <!-- Password Field -->
+        <div class="form-group">
+          <label for="password">Password</label>
+          <div class="input-wrapper">
+            <input type="password" id="password" class="text-input" placeholder="Enter password" required>
+            <button type="button" id="toggle-password" class="password-toggle">Show</button>
+          </div>
+          <div id="password-error" class="field-error">Password must be at least 6 characters.</div>
+        </div>
+
+        <!-- Role Select Field -->
+        <div class="form-group">
+          <label for="role-select">Access Privilege Group (Role)</label>
+          <select id="role-select" class="select-input" required>
+            <option value="" disabled selected>-- Select Access Role --</option>
+            <option value="STUDENT">STUDENT (Dashboard / Settings)</option>
+            <option value="FACULTY">FACULTY (+ Control Center)</option>
+            <option value="ADMIN">ADMIN (Full Vault Access)</option>
+          </select>
+          <div id="role-error" class="field-error">Please select a valid user role.</div>
+        </div>
+
+        <button type="submit" id="submit-btn" class="btn-submit">
+          <span>Authenticate & Launch Gesture Verification</span>
+          <span>→</span>
+        </button>
+      </form>
+
+      <div class="demo-credentials">
+        <strong>Quick Demo Accounts (Click to Fill):</strong><br>
+        <span class="demo-account-btn" onclick="fillDemo('student', 'pass123', 'STUDENT')">Student</span>
+        <span class="demo-account-btn" onclick="fillDemo('faculty', 'pass123', 'FACULTY')">Faculty</span>
+        <span class="demo-account-btn" onclick="fillDemo('admin', 'admin123', 'ADMIN')">Admin</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script>
+    const toggleBtn = document.getElementById('toggle-password');
+    const passwordInput = document.getElementById('password');
+    const usernameInput = document.getElementById('username');
+    const roleSelect = document.getElementById('role-select');
+    const form = document.getElementById('login-form');
+    const alertBanner = document.getElementById('alert-banner');
+
+    // Password visibility toggle
+    toggleBtn.addEventListener('click', () => {
+      const isPassword = passwordInput.type === 'password';
+      passwordInput.type = isPassword ? 'text' : 'password';
+      toggleBtn.textContent = isPassword ? 'Hide' : 'Show';
+    });
+
+    // Preset helper for testing
+    function fillDemo(username, password, role) {
+      usernameInput.value = username;
+      passwordInput.value = password;
+      roleSelect.value = role;
+      clearValidationErrors();
+    }
+
+    // Helper to reset error states
+    function clearValidationErrors() {
+      alertBanner.style.display = 'none';
+      document.querySelectorAll('.text-input, .select-input').forEach(el => el.classList.remove('invalid'));
+      document.querySelectorAll('.field-error').forEach(el => el.classList.remove('visible'));
+    }
+
+    // Real-time input cleaning (removes illegal symbols from username on the fly)
+    usernameInput.addEventListener('input', () => {
+      usernameInput.classList.remove('invalid');
+      document.getElementById('username-error').classList.remove('visible');
+    });
+
+    passwordInput.addEventListener('input', () => {
+      passwordInput.classList.remove('invalid');
+      document.getElementById('password-error').classList.remove('visible');
+    });
+
+    roleSelect.addEventListener('change', () => {
+      roleSelect.classList.remove('invalid');
+      document.getElementById('role-error').classList.remove('visible');
+    });
+
+    // Form submission processing with client-side validation rules
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      clearValidationErrors();
+
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value.trim();
+      const role = roleSelect.value;
+      let isValid = true;
+
+      // 1. Username Regex Validation (Alphanumeric + underscores, min 3 chars)
+      const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+      if (!usernameRegex.test(username)) {
+        usernameInput.classList.add('invalid');
+        document.getElementById('username-error').classList.add('visible');
+        isValid = false;
+      }
+
+      // 2. Password Length Validation (Min 6 chars)
+      if (password.length < 6) {
+        passwordInput.classList.add('invalid');
+        document.getElementById('password-error').classList.add('visible');
+        isValid = false;
+      }
+
+      // 3. Role Selection Validation
+      if (!role) {
+        roleSelect.classList.add('invalid');
+        document.getElementById('role-error').classList.add('visible');
+        isValid = false;
+      }
+
+      if (!isValid) return;
+
+      // Execute authentication check in AuthManager
+      const result = window.authManager.loginWithCredentials(username, password, role);
+
+      if (!result.success) {
+        alertBanner.textContent = result.message;
+        alertBanner.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stage 2: Gesture Verification — GestuRole</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --border-color: #334155;
+      --accent-blue: #3b82f6;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      margin: 0;
+      padding: 2rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 680px;
+    }
+
+    .header-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      text-align: center;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+    }
+
+    .user-info {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+
+    .user-badge {
+      background: #334155;
+      color: var(--text-main);
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .status-banner {
+      padding: 0.85rem 1rem;
+      border-radius: 8px;
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      border: 1px solid var(--accent-blue);
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: all 0.3s ease;
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 8px;
+      background: #0f172a;
+      border-radius: 4px;
+      margin-top: 1rem;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      width: 0%;
+      height: 100%;
+      background: var(--accent-blue);
+      transition: width 0.1s linear, background-color 0.3s ease;
+    }
+
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      height: 480px;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid var(--border-color);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      transform: scaleX(-1); /* Mirror view for natural interaction */
+    }
+
+    .gesture-legend {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .legend-item {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.5rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .legend-item strong {
+      display: block;
+      color: var(--text-main);
+      font-size: 0.85rem;
+      margin-bottom: 0.2rem;
+    }
+  </style>
+
+  <!-- MediaPipe CDN Dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header-card">
+      <h2>Stage 2: Hand Gesture Authentication</h2>
+      <div class="user-info">
+        Logged in as: <span id="display-user" class="user-badge">...</span> | Role: <span id="display-role" class="user-badge">...</span>
+      </div>
+      <div id="status-banner" class="status-banner">📷 Initializing camera feed & MediaPipe...</div>
+      
+      <div class="progress-bar-container">
+        <div id="progress-bar" class="progress-bar"></div>
+      </div>
+    </div>
+
+    <div class="video-wrapper">
+      <video id="webcam" autoplay playsinline muted style="display: none;"></video>
+      <canvas id="output-canvas" width="640" height="480"></canvas>
+    </div>
+
+    <div class="gesture-legend">
+      <div class="legend-item">
+        <strong>☝️ 1 Finger</strong>
+        Dashboard
+      </div>
+      <div class="legend-item">
+        <strong>✌️ 2 Fingers</strong>
+        Control Center
+      </div>
+      <div class="legend-item">
+        <strong>✋ Open Palm</strong>
+        Settings
+      </div>
+      <div class="legend-item">
+        <strong>✊ Fist</strong>
+        Vault (Admin)
+      </div>
+    </div>
+  </div>
+
+  <!-- Stage Protection & Auth Managers -->
+  <script src="js/guard.js"></script>
+  <script src="js/auth.js"></script>
+
+  <script>
+    // --- Application State & Variables ---
+    const videoElement = document.getElementById('webcam');
+    const canvasElement = document.getElementById('output-canvas');
+    const canvasCtx = canvasElement.getContext('2d');
+    const statusBanner = document.getElementById('status-banner');
+    const progressBar = document.getElementById('progress-bar');
+
+    let lastLandmarks = null;
+    let activeGesture = "NONE";
+    let holdStartTime = null;
+    const HOLD_DURATION_MS = 1500; // 1.5 seconds stability hold required
+    const JITTER_THRESHOLD = 0.035; // Maximum spatial movement allowed per frame
+    let isProcessingValidation = false;
+
+    // RBAC Permissions Matrix
+    const rbacMatrix = {
+      "ONE_FINGER": { target: "dashboard.html", allowedRoles: ["STUDENT", "FACULTY", "ADMIN"] },
+      "TWO_FINGER": { target: "control-center.html", allowedRoles: ["FACULTY", "ADMIN"] },
+      "OPEN_PALM":  { target: "settings.html",       allowedRoles: ["STUDENT", "FACULTY", "ADMIN"] },
+      "FIST":        { target: "restricted.html",     allowedRoles: ["ADMIN"] }
+    };
+
+    // Render User Claims from Stage 1
+    const username = window.authManager ? window.authManager.getUsername() : "Guest";
+    const userRole = window.authManager ? window.authManager.getRole() : "STUDENT";
+    document.getElementById('display-user').textContent = username;
+    document.getElementById('display-role').textContent = userRole;
+
+    // --- 1. Hand Connections Skeleton Scheme ---
+    const HAND_CONNECTIONS = [
+      // Palm Base / Wrist
+      [0, 1], [0, 5], [0, 17], [5, 9], [9, 13], [13, 17],
+      // Thumb
+      [1, 2], [2, 3], [3, 4],
+      // Index Finger
+      [5, 6], [6, 7], [7, 8],
+      // Middle Finger
+      [9, 10], [10, 11], [11, 12],
+      // Ring Finger
+      [13, 14], [14, 15], [15, 16],
+      // Pinky Finger
+      [17, 18], [18, 19], [19, 20]
+    ];
+
+    // --- 2. Geometric Gesture Classifier ---
+    function classifyGesture(landmarks) {
+      const wrist = landmarks[0];
+      
+      // Compute Euclidean distances from wrist
+      const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y, p1.z - p2.z);
+
+      const indexExtended = dist(landmarks[8], wrist) > dist(landmarks[5], wrist) * 1.15;
+      const middleExtended = dist(landmarks[12], wrist) > dist(landmarks[9], wrist) * 1.15;
+      const ringExtended = dist(landmarks[16], wrist) > dist(landmarks[13], wrist) * 1.15;
+      const pinkyExtended = dist(landmarks[20], wrist) > dist(landmarks[17], wrist) * 1.15;
+
+      if (indexExtended && middleExtended && ringExtended && pinkyExtended) {
+        return "OPEN_PALM";
+      } else if (indexExtended && middleExtended && !ringExtended && !pinkyExtended) {
+        return "TWO_FINGER";
+      } else if (indexExtended && !middleExtended && !ringExtended && !pinkyExtended) {
+        return "ONE_FINGER";
+      } else if (!indexExtended && !middleExtended && !ringExtended && !pinkyExtended) {
+        return "FIST";
+      }
+      return "NONE";
+    }
+
+    // --- 3. Spatial Jitter Analyzer ---
+    function computeJitter(currentLandmarks, previousLandmarks) {
+      if (!previousLandmarks) return 0;
+      let totalDist = 0;
+      for (let i = 0; i < 21; i++) {
+        totalDist += Math.hypot(
+          currentLandmarks[i].x - previousLandmarks[i].x,
+          currentLandmarks[i].y - previousLandmarks[i].y
+        );
+      }
+      return totalDist / 21;
+    }
+
+    // --- 4. Skeleton & Keypoint Visualizer ---
+    function drawHandSkeleton(ctx, landmarks, width, height) {
+      if (!landmarks || landmarks.length === 0) return;
+
+      // Draw Bone Connection Lines
+      ctx.strokeStyle = '#00FFC8'; // Bright Teal
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+
+      HAND_CONNECTIONS.forEach(([startIdx, endIdx]) => {
+        const startPoint = landmarks[startIdx];
+        const endPoint = landmarks[endIdx];
+
+        ctx.beginPath();
+        ctx.moveTo(startPoint.x * width, startPoint.y * height);
+        ctx.lineTo(endPoint.x * width, endPoint.y * height);
+        ctx.stroke();
+      });
+
+      // Draw Joint & Fingertip Dots
+      landmarks.forEach((lm, index) => {
+        const x = lm.x * width;
+        const y = lm.y * height;
+
+        ctx.beginPath();
+        ctx.arc(x, y, [4, 8, 12, 16, 20].includes(index) ? 5 : 3.5, 0, 2 * Math.PI);
+
+        // Pink/Red for fingertips, white for joints
+        if ([4, 8, 12, 16, 20].includes(index)) {
+          ctx.fillStyle = '#FF0055'; 
+        } else {
+          ctx.fillStyle = '#FFFFFF';
+        }
+
+        ctx.fill();
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      });
+    }
+
+    // --- 5. MediaPipe Pipeline Setup ---
+    const hands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+
+    hands.setOptions({
+      maxNumHands: 1,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.7
+    });
+
+    hands.onResults(onResults);
+
+    function onResults(results) {
+      if (isProcessingValidation) return;
+
+      // Clear & mirror video frame
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        const landmarks = results.multiHandLandmarks[0];
+
+        // Render skeleton lines and keypoint nodes
+        drawHandSkeleton(canvasCtx, landmarks, canvasElement.width, canvasElement.height);
+
+        // Analyze gesture posture & movement stability
+        const detectedGesture = classifyGesture(landmarks);
+        const jitter = computeJitter(landmarks, lastLandmarks);
+        lastLandmarks = landmarks;
+
+        if (detectedGesture !== "NONE" && jitter < JITTER_THRESHOLD) {
+          if (detectedGesture === activeGesture) {
+            // Unbroken hold state
+            const elapsed = Date.now() - holdStartTime;
+            const progress = Math.min((elapsed / HOLD_DURATION_MS) * 100, 100);
+            
+            progressBar.style.width = `${progress}%`;
+            progressBar.style.backgroundColor = '#3b82f6';
+            statusBanner.textContent = `⏳ Hold steady: ${detectedGesture} (${(elapsed/1000).toFixed(1)}s / 1.5s)`;
+
+            if (elapsed >= HOLD_DURATION_MS) {
+              executeAuthorization(detectedGesture);
+            }
+          } else {
+            // New gesture detected; reset timer
+            activeGesture = detectedGesture;
+            holdStartTime = Date.now();
+          }
+        } else {
+          resetHoldTimer("Keep hand steady");
+        }
+      } else {
+        lastLandmarks = null;
+        resetHoldTimer("No hand detected. Hold hand in camera view.");
+      }
+      canvasCtx.restore();
+    }
+
+    function resetHoldTimer(message) {
+      activeGesture = "NONE";
+      holdStartTime = null;
+      progressBar.style.width = "0%";
+      statusBanner.style.background = 'rgba(59, 130, 246, 0.15)';
+      statusBanner.style.borderColor = '#3b82f6';
+      statusBanner.style.color = '#60a5fa';
+      statusBanner.textContent = message;
+    }
+
+    // --- 6. Authorization & RBAC Navigation Engine ---
+    function executeAuthorization(gesture) {
+      isProcessingValidation = true;
+      const routeInfo = rbacMatrix[gesture];
+
+      if (!routeInfo) {
+        resetHoldTimer("Unrecognized gesture mapping.");
+        isProcessingValidation = false;
+        return;
+      }
+
+      // Verify Role Permissions
+      if (routeInfo.allowedRoles.includes(userRole)) {
+        // Access Granted
+        progressBar.style.width = "100%";
+        progressBar.style.backgroundColor = '#10b981';
+        statusBanner.style.background = 'rgba(16, 185, 129, 0.2)';
+        statusBanner.style.borderColor = '#10b981';
+        statusBanner.style.color = '#34d399';
+        statusBanner.textContent = `✅ ACCESS GRANTED (${gesture}) -> Navigating to ${routeInfo.target}...`;
+
+        // Store Stage 2 Proof Claims
+        sessionStorage.setItem("auth_status", "AUTHENTICATED");
+        sessionStorage.setItem("validated_gesture", gesture);
+        sessionStorage.setItem("auth_timestamp", new Date().toISOString());
+
+        // Stop camera tracks before redirecting
+        if (videoElement.srcObject) {
+          videoElement.srcObject.getTracks().forEach(track => track.stop());
+        }
+
+        setTimeout(() => {
+          window.location.replace(routeInfo.target);
+        }, 1200);
+
+      } else {
+        // Access Denied
+        progressBar.style.width = "100%";
+        progressBar.style.backgroundColor = '#ef4444';
+        statusBanner.style.background = 'rgba(239, 68, 68, 0.2)';
+        statusBanner.style.borderColor = '#ef4444';
+        statusBanner.style.color = '#fca5a5';
+        statusBanner.textContent = `🚨 ACCESS DENIED: Role [${userRole}] cannot access ${routeInfo.target}`;
+
+        // Cooldown before next attempt
+        setTimeout(() => {
+          isProcessingValidation = false;
+          resetHoldTimer("Try another gesture authorized for your role.");
+        }, 2500);
+      }
+    }
+
+    // --- 7. Initialize Camera Stream ---
+    const camera = new Camera(videoElement, {
+      onFrame: async () => {
+        await hands.send({ image: videoElement });
+      },
+      width: 640,
+      height: 480
+    });
+
+    camera.start().catch(err => {
+      console.error("Camera Init Error:", err);
+      statusBanner.style.background = 'rgba(239, 68, 68, 0.2)';
+      statusBanner.style.borderColor = '#ef4444';
+      statusBanner.style.color = '#fca5a5';
+      statusBanner.textContent = `❌ Camera Error: ${err.message}. Ensure you are running on http://localhost`;
+    });
+  </script>
+</body>
+</html>

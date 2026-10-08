@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Control Center — Gesture Security</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/guard.js"></script>
+</head>
+<body>
+  <header class="header">
+    <h1>🎛️ Control Center (Faculty / Admin)</h1>
+    <div class="user-badge" id="proof-role">Role</div>
+  </header>
+
+  <main style="padding: 2rem; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;">
+    <div class="card">
+      <div class="card-title">Gesture Verification Security Proof</div>
+      <div class="metric-row"><span>Authenticated Gesture:</span> <strong id="proof-gesture">-</strong></div>
+      <div class="metric-row"><span>Confidence Score:</span> <strong id="proof-confidence">-</strong></div>
+      <div class="metric-row"><span>Hold Duration Verified:</span> <strong id="proof-hold">-</strong></div>
+      <div class="metric-row"><span>Authentication Timestamp:</span> <strong id="proof-time">-</strong></div>
+    </div>
+
+    <div style="display: flex; gap: 1rem;">
+      <button class="btn" onclick="window.location.replace('gesture-verification.html')">Re-verify Gesture</button>
+      <button class="btn btn-danger" onclick="window.authManager.logout()">Logout</button>
+    </div>
+  </main>
+
+  <script src="js/auth.js"></script>
+  <script src="js/access-control.js"></script>
+</body>
+</html>
